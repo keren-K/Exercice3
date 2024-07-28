@@ -1,0 +1,53 @@
+CODE EX9
+S3 : Vous lancez une instance EC2 pour exécuter le script de backup du fichier archivé (contenant 4 fichiers). Vous créez un bucket S3 pour stocker les backups. Et arrêter une fois que nous atteignons 4 backups.
+
+Configuration des permissions avec IAM : créez un rôle IAM avec des permissions d'accès complet à S3 (S3 Full Access) attaché à l'instance EC2.
+
+1. aws configure
+2.aws s3 ls
+3.#!/bin/bash
+
+# Variables
+#!/bin/bash
+
+# Variables
+BUCKET_NAME="mykersave"
+ARCHIVE_NAME="archive.tar"
+BACKUP_DIR="/home/ec2-user/sbackup"
+MAX_BACKUPS=4
+COUNT_FILE="/home/ec2-user/sbackup/count.txt"
+
+# Vérifier ou créer le fichier de compteur
+if [ ! -f $COUNT_FILE ]; then
+  echo 0 > $COUNT_FILE
+fi
+
+# Lire le compteur
+COUNT=$(cat $COUNT_FILE)
+
+# Vérifier si le nombre de backups a atteint la limite
+if [ "$COUNT" -ge "$MAX_BACKUPS" ]; then
+  echo "Limite de backups atteinte. Arrêt du script."
+  exit 0
+fi
+
+# Créer une archive
+tar -cvf $BACKUP_DIR/$ARCHIVE_NAME fichier1 fichier2 fichier3 fichier4
+
+# Copier l'archive vers S3
+aws s3 cp $BACKUP_DIR/$ARCHIVE_NAME s3://$BUCKET_NAME/
+
+# Incrémenter le compteur
+COUNT=$((COUNT + 1))
+echo $COUNT > $COUNT_FILE
+
+# Nettoyer les anciens backups
+aws s3 ls s3://$BUCKET_NAME/ | sort | head -n -$MAX_BACKUPS | awk '{print $4}' | while read -r file; do
+  aws s3 rm s3://$BUCKET_NAME/$file
+done
+
+0 0 * * * /home/ec2-user/scriptBack.sh>>backup.log 
+
+
+
+
